@@ -1,0 +1,341 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Jugador12 API",
+        "description": "Documentación de la API de Jugador12",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "/",
+            "description": "Servidor base (Nginx en Docker)"
+        }
+    ],
+    "paths": {
+        "/api/banners": {
+            "get": {
+                "tags": [
+                    "Banners"
+                ],
+                "summary": "Listar banners activos",
+                "description": "Devuelve los banners activos ordenados por `order`. Por defecto retorna 2.",
+                "operationId": "9f718c7db0d13e4b5be26b80595f4cf1",
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Máximo de banners a devolver (por defecto 2)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 2,
+                            "maximum": 10,
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Banner"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/products": {
+            "get": {
+                "tags": [
+                    "Productos"
+                ],
+                "summary": "Listar productos",
+                "description": "Devuelve un listado limitado de productos con su galería de imágenes.",
+                "operationId": "d97d1c3727cbac49708b85f7d11f7d58",
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Máximo de productos a devolver (por defecto 6)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 6,
+                            "maximum": 100,
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Product"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/products/{id}/sizes": {
+            "get": {
+                "tags": [
+                    "Productos"
+                ],
+                "summary": "Tallas de un producto",
+                "description": "Lista de tallas (adulto/niño) con stock.",
+                "operationId": "efb73af2077644faa5da0c04ec83380d",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del producto",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "product_id": {
+                                            "type": "integer",
+                                            "example": 1
+                                        },
+                                        "sizes": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/SizeOption"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Producto no encontrado"
+                    }
+                }
+            }
+        },
+        "/api/products/{id}": {
+            "get": {
+                "tags": [
+                    "Productos"
+                ],
+                "summary": "Detalle de producto",
+                "description": "Incluye tallas disponibles e imágenes en galería.",
+                "operationId": "c87fb2e4d617e7b36c712cad358acdb8",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del producto",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProductWithSizes"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Producto no encontrado"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ProductImage": {
+                "required": [
+                    "id",
+                    "src"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 11
+                    },
+                    "src": {
+                        "type": "string",
+                        "format": "uri",
+                        "example": "http://localhost/storage/products/rm1.jpg"
+                    },
+                    "alt": {
+                        "type": "string",
+                        "example": "Frente",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "SizeOption": {
+                "required": [
+                    "id",
+                    "type",
+                    "label",
+                    "stock"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "type": {
+                        "type": "string",
+                        "example": "adult"
+                    },
+                    "label": {
+                        "type": "string",
+                        "example": "M"
+                    },
+                    "stock": {
+                        "type": "integer",
+                        "example": 7
+                    }
+                },
+                "type": "object"
+            },
+            "Product": {
+                "required": [
+                    "id",
+                    "name",
+                    "price",
+                    "images"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Camiseta Local Real Madrid 24/25"
+                    },
+                    "price": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 89.99
+                    },
+                    "team": {
+                        "type": "string",
+                        "example": "Real Madrid",
+                        "nullable": true
+                    },
+                    "category": {
+                        "type": "string",
+                        "example": "Actual",
+                        "nullable": true
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Camiseta oficial...",
+                        "nullable": true
+                    },
+                    "images": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ProductImage"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "ProductWithSizes": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/Product"
+                    },
+                    {
+                        "properties": {
+                            "sizes": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/SizeOption"
+                                }
+                            }
+                        },
+                        "type": "object"
+                    }
+                ]
+            },
+            "Banner": {
+                "required": [
+                    "id",
+                    "title",
+                    "image_url",
+                    "order"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "title": {
+                        "type": "string",
+                        "example": "Sorpresa de verano"
+                    },
+                    "subtitle": {
+                        "type": "string",
+                        "example": "Cashback 20%",
+                        "nullable": true
+                    },
+                    "image_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "example": "https://cdn.example.com/banners/campnou.jpg"
+                    },
+                    "order": {
+                        "description": "Orden de aparición; 1 se muestra primero",
+                        "type": "integer",
+                        "example": 1
+                    }
+                },
+                "type": "object"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Productos",
+            "description": "Catálogo: listado, detalle, tallas e imágenes"
+        },
+        {
+            "name": "Banners",
+            "description": "Carrusel de la portada"
+        }
+    ]
+}
