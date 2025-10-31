@@ -16,12 +16,12 @@ return new class extends Migration {
             $t->string('team')->nullable();
             $t->string('category')->nullable();
             $t->decimal('price', 10, 2);
-            $t->text('image_url')->nullable();
+            // Eliminado: $t->text('image_url')->nullable();
             $t->text('description')->nullable();
             $t->timestamps();
         });
 
-        DB::statement('ALTER TABLE products ADD COLUMN embedding vector(768)');
+        DB::statement('ALTER TABLE products ADD COLUMN IF NOT EXISTS embedding vector(768)');
         DB::statement('CREATE INDEX IF NOT EXISTS idx_products_embedding_cos ON products USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)');
     }
 

@@ -10,18 +10,36 @@ use Illuminate\Support\Facades\Cache;
 class ProductController extends Controller
 {
     public function index(Request $r) {
-        $limit = (int) $r->query('limit', 6);
+    $limit = (int) $r->query('limit', 6);
 
-        $products = Product::query()
-            ->orderBy('id')
-            ->limit($limit)
-            ->get(['id','name','price','image_url','team','category','description']);
+    $products = \App\Models\Product::query()
+        ->with(['images' => fn($q) => $q->orderBy('position')])
+        ->orderBy('id')
+        ->limit($limit)
+        ->get(['id','name','price','image_url','team','category','description'])
+        ->map(function ($p) {
+            // construye arreglo de imágenes (src, alt)
+            $imgs = $p->images->map(fn($img) => [
+                'id'  => $img->id,
+                'src' => $img->src,
+                'alt' => $img->alt,
+            ])->values();
+            return [
+                'id'          => $p->id,
+                'name'        => $p->name,
+                'price'       => (float)$p->price,
+                'team'        => $p->team,
+                'category'    => $p->category,
+                'description' => $p->description,
+                // thumb: usa el primero de images o el antiguo image_url
+                'image_url'   => $imgs->first()['src'] ?? $p->image_url,
+                'images'      => $imgs,
+            ];
+        })
+        ->values();
 
-        // Fuerza respuesta JSON y cabecera correcta
-        return response()->json($products, 200, [
-            'Content-Type' => 'application/json; charset=utf-8'
-        ], JSON_UNESCAPED_UNICODE);
-    }
+    return response()->json($products);
+}
 
     public function sizes(int $id)
 {
@@ -44,31 +62,34 @@ class ProductController extends Controller
 
    public function show(int $id)
 {
-    $data = Cache::remember("product:{$id}:show", 30, function () use ($id) {
-        $p = Product::with(['sizes' => fn($q) => $q->orderBy('order')])->findOrFail($id);
+    $p = \App\Models\Product::with(['sizes' => fn($q) => $q->orderBy('order'),
+                                    'images' => fn($q) => $q->orderBy('position')])
+         ->findOrFail($id);
 
-        $sizes = $p->sizes->map(function ($s) {
-            return [
-                'id'    => $s->id,
-                'type'  => $s->type,
-                'label' => $s->label,
-                'stock' => (int)($s->pivot->stock ?? 0),
-            ];
-        })->values();
+    $sizes = $p->sizes->map(fn($s) => [
+        'id'    => $s->id,
+        'type'  => $s->type,
+        'label' => $s->label,
+        'stock' => (int)($s->pivot->stock ?? 0),
+    ])->values();
 
-        return [
-            'id'          => $p->id,
-            'name'        => $p->name,
-            'image_url'   => $p->image_url,
-            'price'       => (float)$p->price,
-            'team'        => $p->team,
-            'category'    => $p->category,
-            'description' => $p->description,
-            'sizes'       => $sizes,
-        ];
-    });
+    $images = $p->images->map(fn($img) => [
+        'id'  => $img->id,
+        'src' => $img->src,
+        'alt' => $img->alt,
+    ])->values();
 
-    return response()->json($data);
+    return response()->json([
+        'id'          => $p->id,
+        'name'        => $p->name,
+        'image_url'   => $images->first()['src'] ?? $p->image_url,
+        'images'      => $images,
+        'price'       => (float)$p->price,
+        'team'        => $p->team,
+        'category'    => $p->category,
+        'description' => $p->description,
+        'sizes'       => $sizes,
+    ]);
 }
 
 
