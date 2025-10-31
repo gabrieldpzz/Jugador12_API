@@ -13,7 +13,17 @@ class DatabaseSeeder extends Seeder
     /**
      * Seed the application's database.
      */
-    public function run(): void {
-    $this->call(\Database\Seeders\BannerSeeder::class);
+  public function run(): void
+{
+    $this->call([
+        SizeSeeder::class,
+        ProductSeeder::class,
+        // Opcional:
+        ProductSizeSeeder::class,
+        BannerSeeder::class,
+    ]);
 }
+
+
+
 }

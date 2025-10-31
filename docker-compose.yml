@@ -17,11 +17,11 @@ services:
       - app
 
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     environment:
-      - POSTGRES_DB=laravel
-      - POSTGRES_USER=laravel
-      - POSTGRES_PASSWORD=password
+      POSTGRES_DB: jugador12
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
     volumes:
