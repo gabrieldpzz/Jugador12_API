@@ -12,6 +12,97 @@
         }
     ],
     "paths": {
+        "/api/auth/send-otp": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Enviar OTP al correo del usuario autenticado (Firebase ID Token)",
+                "description": "Genera un código de 6 dígitos, lo guarda con expiración y lo envía por correo.",
+                "operationId": "bffceebe22269794653d542fb5e548dd",
+                "responses": {
+                    "200": {
+                        "description": "Enviado",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "sent": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "expires_in": {
+                                            "type": "integer",
+                                            "example": 600
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    }
+                }
+            }
+        },
+        "/api/auth/verify-otp": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Verificar OTP",
+                "description": "Valida el código de 6 dígitos y marca el correo como verificado.",
+                "operationId": "abcb5741589707b15c7ecac7a67c13aa",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "code"
+                                ],
+                                "properties": {
+                                    "code": {
+                                        "type": "string",
+                                        "example": "123456"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "verified": {
+                                            "type": "boolean",
+                                            "example": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "410": {
+                        "description": "Expirado"
+                    },
+                    "422": {
+                        "description": "Inválido"
+                    }
+                }
+            }
+        },
         "/api/banners": {
             "get": {
                 "tags": [
@@ -329,6 +420,10 @@
         }
     },
     "tags": [
+        {
+            "name": "Auth",
+            "description": "Autenticación via Firebase + verificación por OTP correo"
+        },
         {
             "name": "Productos",
             "description": "Catálogo: listado, detalle, tallas e imágenes"
