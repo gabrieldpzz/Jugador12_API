@@ -5,19 +5,19 @@ use App\Http\Controllers\Api\BannerController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\AuthController;
 
-Route::get('banners', [BannerController::class, 'index']);
-Route::get('products', [ProductController::class, 'index']);
-Route::get('products/{id}', [ProductController::class, 'show']);
-Route::get('products/{id}/sizes', [ProductController::class, 'sizes']);
+// --- Público (catálogo) ---
+Route::get('banners', [BannerController::class, 'index'])->name('banners.index');
 
-// Requiere Firebase ID Token
-Route::middleware('firebase.auth')->group(function () {
-    Route::post('auth/send-otp',   [AuthController::class, 'sendOtp']);
-    Route::post('auth/verify-otp', [AuthController::class, 'verifyOtp']);
+Route::get('products', [ProductController::class, 'index'])->name('products.index');
+Route::get('products/{id}', [ProductController::class, 'show'])->name('products.show');
+Route::get('products/{id}/sizes', [ProductController::class, 'sizes'])->name('products.sizes');
 
-    // Ejemplo de carrito protegido doblemente:
-    Route::middleware('otp.verified')->group(function () {
-        // Route::post('cart/items', [CartController::class, 'store']);
-        // Route::get('cart',        [CartController::class, 'index']);
-    });
-});
+// --- Auth + OTP (sin middleware extra; corre con el grupo 'api' por defecto) ---
+Route::post('auth/send-otp',   [AuthController::class, 'sendOtp'])->name('auth.send-otp');
+Route::post('auth/verify-otp', [AuthController::class, 'verifyOtp'])->name('auth.verify-otp');
+
+// --- Ejemplo futuro: rutas protegidas por OTP verificado ---
+// Route::middleware('otp.verified')->group(function () {
+//     Route::post('cart/items', [CartController::class, 'store'])->name('cart.store');
+//     Route::get('cart',        [CartController::class, 'index'])->name('cart.index');
+// });

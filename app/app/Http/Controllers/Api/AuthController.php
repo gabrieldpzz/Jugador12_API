@@ -4,111 +4,98 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Hash;
-use Carbon\Carbon;
-use App\Mail\OtpMail;
-use OpenApi\Annotations as OA;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
-/**
- * @OA\Tag(
- *   name="Auth",
- *   description="Autenticación via Firebase + verificación por OTP correo"
- * )
- */
 class AuthController extends Controller
 {
     /**
-     * @OA\Post(
-     *   path="/api/auth/send-otp",
-     *   tags={"Auth"},
-     *   summary="Enviar OTP al correo del usuario autenticado (Firebase ID Token)",
-     *   description="Genera un código de 6 dígitos, lo guarda con expiración y lo envía por correo.",
-     *   @OA\Response(response=200, description="Enviado", @OA\JsonContent(
-     *     @OA\Property(property="sent", type="boolean", example=true),
-     *     @OA\Property(property="expires_in", type="integer", example=600)
-     *   )),
-     *   @OA\Response(response=401, description="No autenticado")
-     * )
+     * POST /api/auth/send-otp
+     * body: { "email": "user@dominio.com" }
+     * Envía un código OTP de 6 dígitos al correo. No requiere estar autenticado.
      */
-    public function sendOtp(Request $r)
+    public function sendOtp(Request $request)
     {
-        $user = $r->attributes->get('auth_user');
-        if (!$user) return response()->json(['error' => 'unauthenticated'], 401);
-
-        $code = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-
-        DB::table('email_otp_codes')->insert([
-            'user_id'    => $user->id,
-            'code_hash'  => Hash::make($code),
-            'expires_at' => Carbon::now()->addMinutes(10),
-            'attempts'   => 0,
-            'created_at' => now(),
-            'updated_at' => now(),
+        $data = $request->validate([
+            'email' => ['required','email','max:255'],
         ]);
 
-        Mail::to($user->email)->send(new OtpMail($code));
+        $email = strtolower($data['email']);
 
-        return response()->json(['sent' => true, 'expires_in' => 600]);
+        // Anti-abuso simple: 1 código por minuto.
+        $cooldownKey = "otp:cooldown:$email";
+        if (Cache::has($cooldownKey)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Espera un minuto antes de solicitar otro código.',
+            ], 429);
+        }
+
+        // Generar OTP de 6 dígitos
+        $code = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        // Guardar OTP 10 min
+        Cache::put("otp:code:$email", $code, now()->addMinutes(10));
+        // cooldown 60s
+        Cache::put($cooldownKey, true, now()->addSeconds(60));
+
+        // Enviar correo
+        try {
+            Mail::raw(
+                "Tu código de verificación es: $code\nVence en 10 minutos.",
+                function ($m) use ($email) {
+                    $m->to($email)
+                      ->subject('Tu código Jugador12');
+                }
+            );
+        } catch (\Throwable $e) {
+            Log::error('Error enviando OTP', ['email' => $email, 'e' => $e->getMessage()]);
+            return response()->json([
+                'ok' => false,
+                'message' => 'No se pudo enviar el OTP. Revisa SMTP.',
+            ], 500);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'OTP enviado',
+        ]);
     }
 
     /**
-     * @OA\Post(
-     *   path="/api/auth/verify-otp",
-     *   tags={"Auth"},
-     *   summary="Verificar OTP",
-     *   description="Valida el código de 6 dígitos y marca el correo como verificado.",
-     *   @OA\RequestBody(required=true, @OA\JsonContent(
-     *     required={"code"},
-     *     @OA\Property(property="code", type="string", example="123456")
-     *   )),
-     *   @OA\Response(response=200, description="OK", @OA\JsonContent(
-     *     @OA\Property(property="verified", type="boolean", example=true)
-     *   )),
-     *   @OA\Response(response=401, description="No autenticado"),
-     *   @OA\Response(response=410, description="Expirado"),
-     *   @OA\Response(response=422, description="Inválido")
-     * )
+     * POST /api/auth/verify-otp
+     * body: { "email": "user@dominio.com", "code": "123456" }
+     * Verifica el código. Si coincide, marca verificado 15 min.
      */
-    public function verifyOtp(Request $r)
+    public function verifyOtp(Request $request)
     {
-        $user = $r->attributes->get('auth_user');
-        if (!$user) return response()->json(['error' => 'unauthenticated'], 401);
+        $data = $request->validate([
+            'email' => ['required','email','max:255'],
+            'code'  => ['required','digits:6'],
+        ]);
 
-        $code = (string) ($r->input('code'));
-        if (strlen($code) !== 6) {
-            return response()->json(['error' => 'invalid_code'], 422);
+        $email = strtolower($data['email']);
+        $code  = $data['code'];
+
+        $saved = Cache::get("otp:code:$email");
+        if (!$saved || $saved !== $code) {
+            return response()->json([
+                'ok' => false,
+                'verified' => false,
+                'message' => 'Código incorrecto o vencido.',
+            ], 400);
         }
 
-        $row = DB::table('email_otp_codes')
-            ->where('user_id', $user->id)
-            ->whereNull('consumed_at')
-            ->orderByDesc('id')
-            ->first();
+        // Marcar verificado por 15 min
+        Cache::put("otp:verified:$email", true, now()->addMinutes(15));
+        // Consumir OTP
+        Cache::forget("otp:code:$email");
 
-        if (!$row) {
-            return response()->json(['error' => 'invalid_code'], 422);
-        }
-
-        if (Carbon::parse($row->expires_at)->isPast()) {
-            return response()->json(['error' => 'expired_code'], 410);
-        }
-
-        if (!Hash::check($code, $row->code_hash)) {
-            DB::table('email_otp_codes')->where('id', $row->id)
-              ->update(['attempts' => min(255, $row->attempts + 1)]);
-            return response()->json(['error' => 'invalid_code'], 422);
-        }
-
-        DB::table('email_otp_codes')->where('id', $row->id)
-          ->update(['consumed_at' => now(), 'updated_at' => now()]);
-
-        if (is_null($user->email_verified_at)) {
-            $user->email_verified_at = now();
-            $user->save();
-        }
-
-        return response()->json(['verified' => true]);
+        return response()->json([
+            'ok' => true,
+            'verified' => true,
+        ]);
     }
 }

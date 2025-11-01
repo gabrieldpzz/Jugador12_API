@@ -11,12 +11,11 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up', // opcional
     )
-    ->withMiddleware(function (Middleware $middleware) {
-        $middleware->alias([
-            'firebase.auth' => \App\Http\Middleware\FirebaseAuthMiddleware::class,
-            'otp.verified'  => \App\Http\Middleware\OtpVerified::class,
-        ]);
-    })
+    ->withMiddleware(function (\Illuminate\Foundation\Configuration\Middleware $middleware) {
+    // ⚠️ Nada de Kreait aquí. No alias, no append, no prepend.
+    // Si tenías 'firebase' como alias, quítalo por ahora.
+})
+
     ->withExceptions(function (Exceptions $exceptions) {
         //
     })
