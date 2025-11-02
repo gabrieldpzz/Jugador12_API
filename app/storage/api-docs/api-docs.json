@@ -17,56 +17,22 @@
                 "tags": [
                     "Auth"
                 ],
-                "summary": "Enviar OTP al correo del usuario autenticado (Firebase ID Token)",
-                "description": "Genera un código de 6 dígitos, lo guarda con expiración y lo envía por correo.",
+                "summary": "Enviar OTP por email",
+                "description": "Envía un código OTP de 6 dígitos al correo. Si el correo ya está verificado en BD, no reenvía.",
                 "operationId": "bffceebe22269794653d542fb5e548dd",
-                "responses": {
-                    "200": {
-                        "description": "Enviado",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "sent": {
-                                            "type": "boolean",
-                                            "example": true
-                                        },
-                                        "expires_in": {
-                                            "type": "integer",
-                                            "example": 600
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "No autenticado"
-                    }
-                }
-            }
-        },
-        "/api/auth/verify-otp": {
-            "post": {
-                "tags": [
-                    "Auth"
-                ],
-                "summary": "Verificar OTP",
-                "description": "Valida el código de 6 dígitos y marca el correo como verificado.",
-                "operationId": "abcb5741589707b15c7ecac7a67c13aa",
                 "requestBody": {
                     "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "code"
+                                    "email"
                                 ],
                                 "properties": {
-                                    "code": {
+                                    "email": {
                                         "type": "string",
-                                        "example": "123456"
+                                        "format": "email",
+                                        "example": "user@example.com"
                                     }
                                 },
                                 "type": "object"
@@ -81,9 +47,18 @@
                             "application/json": {
                                 "schema": {
                                     "properties": {
-                                        "verified": {
+                                        "ok": {
                                             "type": "boolean",
                                             "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "OTP enviado"
+                                        },
+                                        "already_verified": {
+                                            "type": "boolean",
+                                            "example": true,
+                                            "nullable": true
                                         }
                                     },
                                     "type": "object"
@@ -91,14 +66,109 @@
                             }
                         }
                     },
-                    "401": {
-                        "description": "No autenticado"
+                    "422": {
+                        "description": "Validación fallida"
                     },
-                    "410": {
-                        "description": "Expirado"
+                    "429": {
+                        "description": "Cooldown (solicitudes muy seguidas)"
+                    },
+                    "500": {
+                        "description": "Error al enviar correo"
+                    }
+                }
+            }
+        },
+        "/api/auth/verify-otp": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Verificar OTP",
+                "description": "Valida el código OTP y marca email verificado. Si no existe usuario, lo crea ya verificado.",
+                "operationId": "abcb5741589707b15c7ecac7a67c13aa",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "code"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "user@example.com"
+                                    },
+                                    "code": {
+                                        "type": "string",
+                                        "pattern": "^\\d{6}$",
+                                        "example": "123456"
+                                    },
+                                    "name": {
+                                        "description": "Opcional: si no existe el usuario, se usará este nombre",
+                                        "type": "string",
+                                        "example": "Juan Pérez",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Verificado",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "verified": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "created_user": {
+                                            "type": "boolean",
+                                            "example": false
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Código incorrecto o vencido",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "verified": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Código incorrecto o vencido."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "422": {
-                        "description": "Inválido"
+                        "description": "Validación fallida"
                     }
                 }
             }
@@ -421,16 +491,16 @@
     },
     "tags": [
         {
-            "name": "Auth",
-            "description": "Autenticación via Firebase + verificación por OTP correo"
-        },
-        {
             "name": "Productos",
             "description": "Catálogo: listado, detalle, tallas e imágenes"
         },
         {
             "name": "Banners",
             "description": "Carrusel de la portada"
+        },
+        {
+            "name": "Auth",
+            "description": "Auth"
         }
     ]
 }
